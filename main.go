@@ -23,7 +23,6 @@ func main() {
 	log.Panicf("[-] %v\n", http.ListenAndServe(":8080", nil))
 }
 
-
 // handles stuff
 func handler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -38,7 +37,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	msgs := make(chan structs.WsRequest)
 	go read(msgs, conn)
 
-	go checkMsgs(conn)
+	go checkMsgs(conn, true)
 
 	// send initial info
 	conn.WriteJSON(structs.WsRequest{"status", funcs.GetDB()})
@@ -48,7 +47,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		cresp := &structs.WsRequest{}
 
 		// wait for user input
-		creq := <- msgs
+		creq := <-msgs
 
 		switch creq.Type {
 		case "messageCreate":
@@ -75,13 +74,20 @@ func read(msgs chan structs.WsRequest, conn *websocket.Conn) {
 }
 
 // wait for update
-func checkMsgs(conn *websocket.Conn) {
-	var oldState []structs.Message
+func checkMsgs(conn *websocket.Conn, initial bool) {
+	init := initial
 	for {
-		currentState := db.Messages
-		if !reflect.DeepEqual(oldState, currentState) {
-			conn.WriteJSON(structs.WsRequest{"status", currentState})
+		if !init {
+			var oldState []structs.Message
+
+			currentState := db.Messages
+			if !reflect.DeepEqual(oldState, currentState) {
+				conn.WriteJSON(structs.WsRequest{"status", currentState})
+			}
+			oldState = currentState
+
 		}
-		oldState = currentState
+		init = false
 	}
+
 }
