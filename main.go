@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/nielsdingsbums/anas_epistulae/db"
 	"github.com/nielsdingsbums/anas_epistulae/funcs"
 	"github.com/nielsdingsbums/anas_epistulae/structs"
+	"log"
 	"net/http"
+	"reflect"
 )
 
 var upgrader = websocket.Upgrader{
@@ -17,7 +20,7 @@ var upgrader = websocket.Upgrader{
 func main() {
 	http.HandleFunc("/", handler)
 	fmt.Print("[+] Briefente - Anas Epistulae\n")
-	fmt.Printf("[-] %v\n", http.ListenAndServe(":8080", nil))
+	log.Panicf("[-] %v\n", http.ListenAndServe(":8080", nil))
 }
 
 
@@ -28,12 +31,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[-] %v\n", err)
 	}
 
-	ip := conn.RemoteAddr()
+	ip := conn.RemoteAddr().String()
 	fmt.Printf("[+] New connection established! ip %v\n", ip)
 
 	// establish channel
 	msgs := make(chan structs.WsRequest)
 	go read(msgs, conn)
+
+	go checkMsgs(conn)
 
 	// send initial info
 	conn.WriteJSON(structs.WsRequest{"status", funcs.GetDB()})
@@ -46,10 +51,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		creq := <- msgs
 
 		switch creq.Type {
-
+		case "messageCreate":
+			funcs.MessageCreate(creq)
 		}
 
-		conn.WriteJSON(cresp)
+		if cresp.Type != "" {
+			conn.WriteJSON(cresp)
+		}
 	}
 }
 
@@ -59,8 +67,21 @@ func read(msgs chan structs.WsRequest, conn *websocket.Conn) {
 		creq := &structs.WsRequest{}
 		if err := conn.ReadJSON(creq); err != nil {
 			fmt.Printf("[-] reading error: %v\n", err)
-			continue
+			conn.Close()
+			return
 		}
 		msgs <- *creq
+	}
+}
+
+// wait for update
+func checkMsgs(conn *websocket.Conn) {
+	var oldState []structs.Message
+	for {
+		currentState := db.Messages
+		if !reflect.DeepEqual(oldState, currentState) {
+			conn.WriteJSON(structs.WsRequest{"status", currentState})
+		}
+		oldState = currentState
 	}
 }

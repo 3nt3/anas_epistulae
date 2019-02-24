@@ -1,6 +1,11 @@
 package db
 
-import "github.com/nielsdingsbums/anas_epistulae/structs"
+import (
+	"github.com/nielsdingsbums/anas_epistulae/structs"
+	"time"
+)
 
-var Messages []structs.Message
+var theTime time.Time = time.Now()
+
+var Messages []structs.Message = []structs.Message{{0, "Hallo", theTime, "lol"}}
 var Authors []structs.Author

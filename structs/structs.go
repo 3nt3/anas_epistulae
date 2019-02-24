@@ -11,7 +11,7 @@ type Message struct {
 	ID        int       `json:"id"`
 	Text      string    `json:"text"`
 	CreatedAt time.Time `json:"created_at"`
-	Author    Author    `json:"author"`
+	Author    string    `json:"author"`
 }
 
 type Author struct {
