@@ -37,7 +37,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	events := make(chan structs.WSEvent)
 	go read(conn, events)
-	go checkUpdate(conn)
+
+	initial := true
+	go checkUpdate(conn, &initial)
 
 	for {
 		// wait for new event
@@ -67,7 +69,7 @@ func read(conn *websocket.Conn, events chan structs.WSEvent) {
 	}
 }
 
-func checkUpdate(conn *websocket.Conn) {
+func checkUpdate(conn *websocket.Conn, initial *bool) {
 	// Get initial messages
 	oldMessages := funcs.GetMessages()
 	for {
@@ -76,7 +78,7 @@ func checkUpdate(conn *websocket.Conn) {
 		newMessages := funcs.GetMessages()
 
 		// If the length varies, send update (new messages) to client
-		if len(oldMessages) != len(newMessages) {
+		if len(oldMessages) != len(newMessages) || *initial {
 
 			// create event
 			event := &structs.WSEvent{
@@ -92,5 +94,6 @@ func checkUpdate(conn *websocket.Conn) {
 		}
 
 		oldMessages = newMessages
+		*initial = false
 	}
 }
